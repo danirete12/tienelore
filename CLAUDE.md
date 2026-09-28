@@ -20,25 +20,37 @@ Diseño visual de referencia (mockup original aprobado): https://claude.ai/artif
 
 ## Dónde está cada cosa
 
+Este repo (`danirete12/tienelore`) es independiente del de PlotTwist —
+se separó el 28/09/2026 para que se pueda operar desde otra sesión de
+Claude Code sin dar acceso a nada de PlotTwist (API keys, datos de
+negocio, etc. de ese otro proyecto).
+
 ```
-tienelore-web/
-  README.md                    ← instrucciones de instalación y uso, para Dani (no técnicas)
-  CLAUDE.md                    ← este archivo
-  wp-theme/
-    tienelore/                 ← el tema, código fuente real
-      functions.php            ← setup del tema, categorías, favicon, portada manual, relacionados
-      header.php / footer.php  ← masthead (negro, con ticker), pie
-      home.php                 ← portada: hero + secciones por categoría
-      single.php                ← plantilla de artículo individual
-      archive.php               ← listado de una categoría
-      author.php                ← página de autor
-      404.php / page.php / index.php
-      template-parts/          ← tarjeta de artículo (content-card.php) y variante en lista
-      assets/
-        css/main.css            ← todo el CSS (tokens de color en :root, arriba del todo)
-        js/main.js               ← buscador overlay, menú móvil, barra de progreso de lectura
-        img/favicon/             ← favicon de marca (ver abajo)
-    tienelore-theme.zip         ← el mismo tema empaquetado, listo para subir desde el admin de WP
+README.md                    ← instrucciones de instalación y uso, para Dani (no técnicas)
+CLAUDE.md                    ← este archivo
+wp-theme/
+  tienelore/                 ← el tema, código fuente real
+    functions.php            ← setup del tema, categorías, favicon, portada manual, relacionados
+    header.php / footer.php  ← masthead (negro, con ticker), pie
+    home.php                  ← portada: hero + secciones por categoría
+    single.php                ← plantilla de artículo individual
+    archive.php               ← listado de una categoría
+    author.php                ← página de autor
+    404.php / page.php / index.php
+    template-parts/          ← tarjeta de artículo (content-card.php) y variante en lista
+    assets/
+      css/main.css            ← todo el CSS (tokens de color en :root, arriba del todo)
+      js/main.js               ← buscador overlay, menú móvil, barra de progreso de lectura
+      img/favicon/             ← favicon de marca (ver abajo)
+  tienelore-theme.zip         ← el mismo tema empaquetado, listo para subir desde el admin de WP
+wp-plugin/
+  tienelore-publish-api/
+    tienelore-publish-api.php ← plugin de WP: API REST propia para publicar desde este repo
+  tienelore-publish-api.zip   ← el mismo plugin empaquetado, listo para subir desde el admin
+scripts/
+  quick_publish.py            ← script cliente que habla con el plugin (ver más abajo)
+config/
+  settings.example.json       ← plantilla — copiar a settings.json y rellenar credenciales reales
 ```
 
 **Si cambias algo dentro de `wp-theme/tienelore/`, tienes que regenerar
@@ -64,12 +76,22 @@ zip -r tienelore-theme.zip tienelore
   publica ~54 artículos/día con Claude + WordPress API), aquí no se ha
   tocado nada de eso. Publicar contenido, de momento, es 100% manual
   desde el escritorio de WordPress.
-- **No hay automatización de publicación.** Si en algún momento se
-  quiere automatizar (generar artículos con IA y publicarlos solos, como
-  hace PlotTwist), el pipeline de referencia está en
-  `../plottwist-web/scripts/` (`content_generator.py`, `publisher.py`,
-  `scheduler.py`) — pero habría que adaptarlo a las 8 categorías y a la
-  temática de TieneLore desde cero, no es plug-and-play.
+- **Ya existe el mecanismo para publicar desde Claude Code**
+  (`wp-plugin/tienelore-publish-api/` + `scripts/quick_publish.py`),
+  con el mismo patrón que usa PlotTwist (clave de API propia en una
+  cabecera + Application Password de WordPress para el resto). Ver la
+  sección "Publicar desde aquí (API propia)" más abajo. Lo que falta es
+  instalarlo en un WordPress real y rellenar `config/settings.json` —
+  el código ya está.
+- **No hay automatización sin intervención** tipo la de PlotTwist
+  (`content_generator.py` / `scheduler.py`, que generan Y publican
+  solos por cron sin que nadie los dispare). De momento publicar es
+  "llamar a `quick_publish.py` con un artículo ya escrito", a mano o
+  desde una sesión de Claude — no hay generación automática de
+  contenido ni cadencia programada. Si se quiere eso, el pipeline de
+  referencia (con sus rutinas y prompts de redactor) está en
+  `plottwist-web/scripts/` del repo de PlotTwist, pero habría que
+  adaptarlo a las 8 categorías y a la temática de TieneLore desde cero.
 
 ## Las 8 categorías (fijas, no se tocan sin querer)
 
@@ -168,6 +190,38 @@ explicadas también en el README:
 - **Caja de Pandora sin tratamiento especial** — a propósito, pese al
   nombre: es una categoría más, con su sello de color y su rejilla
   normal, nada de miniaturas borrosas ni candados.
+
+## Publicar desde aquí (API propia, mismo patrón que PlotTwist)
+
+`wp-plugin/tienelore-publish-api/` registra `/wp-json/tienelore/v1/`:
+crear borrador (`POST /posts`), leer/editar/borrar (`GET|PUT|DELETE
+/posts/{id}`) y publicar (`POST /posts/{id}/publish`), autenticado con
+una clave compartida en la cabecera `X-Tienelore-Key` (comparación
+`hash_equals`, se genera sola al activar el plugin, visible en Ajustes
+→ TieneLore Publish API). Subir imágenes y asignar categoría/autor/tags
+va por la REST API estándar de WordPress (`/wp-json/wp/v2/`) con una
+Application Password — el plugin no reinventa eso.
+
+`scripts/quick_publish.py` es el cliente Python (calcado del de
+PlotTwist, mismo nombre de función `publish_with_images`, mismos
+argumentos). Antes de poder publicar de verdad hace falta:
+1. Instalar y activar el plugin en el WordPress real (`wp-plugin/tienelore-publish-api.zip`).
+2. Copiar `config/settings.example.json` a `config/settings.json` y rellenar: `base_url`, la clave del plugin, usuario + Application Password, y los IDs reales de las 8 categorías (se consultan en `/wp-json/wp/v2/categories` una vez el tema está activo — el tema las crea solo).
+3. Desde Python: `sys.path.insert(0, "scripts"); from quick_publish import publish_with_images`.
+
+Si tocas el plugin (`wp-plugin/tienelore-publish-api/tienelore-publish-api.php`),
+igual que con el tema: `php -l` para validar sintaxis, y regenerar
+`wp-plugin/tienelore-publish-api.zip`:
+```bash
+cd wp-plugin
+rm -f tienelore-publish-api.zip
+zip -r tienelore-publish-api.zip tienelore-publish-api
+```
+
+Nota: TieneLore no tiene redactores fijos como los 5 de PlotTwist —
+`wordpress_author_ids` en settings.json puede quedarse vacío sin
+problema; los posts salen entonces a nombre del usuario de la
+Application Password.
 
 ## Cómo trabajar aquí como Claude Code
 

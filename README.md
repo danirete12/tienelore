@@ -77,10 +77,61 @@ Cada artículo es un post normal de WordPress:
   — Caja de Pandora incluida — el artículo se ve igual que cualquier
   otro, sin tratamiento especial.
 
-Si el pipeline de automatización de PlotTwist
-(`projects/plottwist-web/scripts/quick_publish.py`) se adapta para
-tienelore.com más adelante, solo hace falta apuntarlo a la URL de la
-API REST de ese WordPress y a estas mismas categorías.
+## Publicar desde Claude Code (API propia, como PlotTwist)
+
+El repo ya incluye el mismo mecanismo que usa PlotTwist para publicar
+directamente desde un script en vez de a mano desde el escritorio:
+
+```
+wp-plugin/
+  tienelore-publish-api/         ← plugin de WordPress (código fuente)
+  tienelore-publish-api.zip      ← el mismo plugin empaquetado, para subir desde el admin
+scripts/
+  quick_publish.py                ← script cliente (igual que el de PlotTwist)
+config/
+  settings.example.json           ← plantilla de configuración (copiar a settings.json)
+```
+
+**1. Instalar el plugin** — Plugins → Añadir nueva → Subir plugin →
+seleccionar `wp-plugin/tienelore-publish-api.zip` → Instalar ahora →
+Activar.
+
+**2. Coger la clave de la API** — tras activarlo aparece un nuevo menú
+Ajustes → TieneLore Publish API, con una clave ya generada sola. Esa
+clave autentica las peticiones a `/wp-json/tienelore/v1/` (crear,
+editar, publicar y borrar posts).
+
+**3. Crear una Application Password** — esto es aparte, y hace falta
+para subir imágenes y asignar categoría/autor/etiquetas (eso pasa por
+la REST API estándar de WordPress, no por el plugin). Usuarios → tu
+perfil → "Contraseñas de aplicación" → nombre `tienelore-claude` →
+Añadir. Copiar la contraseña generada (con espacios), WordPress solo la
+enseña una vez.
+
+**4. Configurar el script** — copiar `config/settings.example.json` a
+`config/settings.json` y rellenar `base_url`, la clave del paso 2, el
+usuario y la Application Password del paso 3. Los IDs de categoría se
+sacan visitando `https://tienelore.com/wp-json/wp/v2/categories` una
+vez el tema esté activado (las crea él solo) y copiando el `id` de cada
+una al JSON.
+
+**5. Publicar** — desde una sesión de Claude Code con este repo:
+```python
+import sys
+sys.path.insert(0, "scripts")
+from quick_publish import publish_with_images
+
+article = {
+    "title": "...",
+    "content": "<p>HTML del artículo...</p>",
+    "excerpt": "...",
+    "category": "virales",       # una de las 8 categorías, por slug
+}
+result = publish_with_images(article, ["/ruta/imagen1.jpg", "/ruta/imagen2.jpg"], auto_publish=True)
+print(result)  # {"status": "published", "post_id": ..., "wp_admin_url": ...}
+```
+Con `auto_publish=False` (por defecto) se queda en borrador para
+revisar antes de publicar.
 
 ## Decisiones que he tomado por mi cuenta (revísalas)
 
@@ -112,8 +163,14 @@ API REST de ese WordPress y a estas mismas categorías.
   este tema — no existe todavía, hasta donde yo sé.
 - Redactores/autores dados de alta en ese WordPress (aquí no he tocado
   nada de eso, a diferencia de PlotTwist que tiene 5 redactores con
-  usuario propio).
-- Si quieres automatizar la publicación como en PlotTwist, adaptar
-  `content_generator.py` / `publisher.py` / `scheduler.py` a estas 8
-  categorías y a la temática de tienelore.com (nada de eso está hecho
-  todavía — esto es solo el tema visual y su estructura).
+  usuario propio). El plugin y el script ya soportan asignar autor si
+  en algún momento se crean usuarios, pero no es obligatorio.
+- El plugin (`wp-plugin/tienelore-publish-api/`) y el script
+  (`scripts/quick_publish.py`) para publicar directamente desde Claude
+  Code ya están listos (ver sección de arriba) — falta instalarlos en
+  un WordPress real y rellenar `config/settings.json`.
+- Automatización completa tipo PlotTwist (`content_generator.py` /
+  `scheduler.py`, que generan y publican solos sin que nadie los
+  dispare a mano) no está hecha todavía — de momento la publicación por
+  script es manual: alguien (o Claude) llama a `quick_publish.py` con
+  el artículo ya escrito.

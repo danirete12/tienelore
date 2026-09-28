@@ -1,0 +1,22 @@
+{
+  "wordpress": {
+    "base_url": "https://tienelore.com",
+    "tienelore_api_key": "PEGAR_AQUI_LA_CLAVE_DE_AJUSTES_TIENELORE_PUBLISH_API",
+    "username": "usuario-que-publica",
+    "app_password": "xxxx xxxx xxxx xxxx xxxx xxxx"
+  },
+  "wordpress_category_ids": {
+    "_comentario": "Rellenar tras activar el tema: GET /wp-json/wp/v2/categories?per_page=50 en el sitio real y copiar cada id. El tema las crea solas la primera vez que se activa (tienelore_seed_categories() en functions.php).",
+    "actualidad": null,
+    "corazon": null,
+    "deporte": null,
+    "paladar": null,
+    "virales": null,
+    "cosas-de-casa": null,
+    "frase-del-dia": null,
+    "caja-de-pandora": null
+  },
+  "wordpress_author_ids": {
+    "_comentario": "TieneLore no tiene redactores fijos como PlotTwist. Si en algún momento se dan de alta usuarios/autores en WordPress, añadir aquí su slug (sin tildes, minúsculas) -> id de usuario. Si se deja vacío, los posts salen a nombre del usuario de la Application Password."
+  }
+}
